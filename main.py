@@ -120,12 +120,13 @@ def get_free_space_gb(path="/"):
 class HibernationHelper(QMainWindow):
     def __init__(self):
         super().__init__()
-        # Set window icon (uses system theme)
-        icon = QIcon.fromTheme("system-suspend-hibernate")
-        if icon.isNull():
-            # Fallback if icon not found
-            icon = QIcon.fromTheme("preferences-system-power")
-        self.setWindowIcon(icon)        
+        # Set custom icon from file
+        icon_path = os.path.join(os.path.dirname(__file__), "hibernation-helper.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        else:
+            # Fallback to system icon
+            self.setWindowIcon(QIcon.fromTheme("system-suspend-hibernate"))                
         self.hibernation_ready = False  # ← new state tracker        
         self.setWindowTitle("Hibernation Helper")
         self.resize(600, 450)
@@ -134,14 +135,16 @@ class HibernationHelper(QMainWindow):
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
-        title = QLabel("🐧 Hibernation Helper for Fedora")
+        title = QLabel("🐧 Hibernation Helper")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: bold; margin: 10px;")
         layout.addWidget(title)
 
         desc = QLabel(
-            "This tool checks if your system can hibernate.<br>"
-            "Hibernation requires disk-based swap ≥ your RAM size.<br>"
+            "This tool checks if your system can hibernate,<br>"
+            "Then enables or disables it for you, avoiding the need for going through the terminal.<br>"
+            "<br>"
+            "Hibernation requires disk-based swap to be larger than your RAM size.<br>"
             "<b>zram does NOT support hibernation.</b>"
         )
         desc.setTextFormat(Qt.TextFormat.RichText)  # ← This enables HTML
@@ -170,7 +173,11 @@ class HibernationHelper(QMainWindow):
 
         self.disable_btn = QPushButton("⏹️ Disable Hibernation")
         self.disable_btn.clicked.connect(self.disable_hibernation)
-        layout.addWidget(self.disable_btn)        
+        layout.addWidget(self.disable_btn)
+
+        self.about_btn = QPushButton("ℹ️ About")
+        self.about_btn.clicked.connect(self.show_about)
+        layout.addWidget(self.about_btn)                
 
         # Status display area
         self.status_label = QLabel("")
@@ -440,7 +447,20 @@ class HibernationHelper(QMainWindow):
             )
 
         except Exception as e:
-            self.set_status_message(f"❌ Unexpected error:\n{str(e)}", False)                                                    
+            self.set_status_message(f"❌ Unexpected error:\n{str(e)}", False) 
+
+    def show_about(self):
+        about_text = (
+            "<h3>Hibernation Helper</h3>"
+            "<p>Version 0.24</p>"
+            "<p>A user-friendly tool to test, enable and disable hibernation on Linux.<br>Only tested on Fedora for now</p>"
+            "<p>• Works with swap partitions and swap files<br>"
+            "• Uses standard Fedora tools (grubby, swapon, pkexec)<br>"
+            "• No technical knowledge required</p>"
+            "<p>© 2025 Chief Denis<br>"
+            "Licensed under MIT"
+        )
+        QMessageBox.about(self, "About Hibernation Helper", about_text)                                                               
 
 app = QApplication(sys.argv)
 window = HibernationHelper()
