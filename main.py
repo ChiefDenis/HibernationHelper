@@ -168,6 +168,15 @@ class HibernationHelper(QMainWindow):
         self.enable_btn.clicked.connect(self.enable_hibernation)
         layout.addWidget(self.enable_btn)
 
+        # Status display area
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet(
+            "padding: 10px; margin-top: 10px; border-radius: 4px;"
+        )
+        self.status_label.hide()  # Hide until first message
+        layout.addWidget(self.status_label)        
+
         layout.addStretch()
 
     def add_status_row(self, label_text, value_text):
@@ -177,15 +186,18 @@ class HibernationHelper(QMainWindow):
         value.setWordWrap(True)
         self.status_layout.addRow(label, value)
 
-    def show_result(self, message, success):
-        icon = QMessageBox.Information if success else QMessageBox.Warning
-        box = QMessageBox(self)
-        box.setIcon(icon)
-        box.setWindowTitle("Hibernation Check Result")
-        box.setText(message)
-        box.setModal(True)
-        box.raise_()
-        box.exec()
+    def set_status_message(self, message, success=True):
+        """Show message in status area with color coding."""
+        self.status_label.setText(message)
+        if success:
+            self.status_label.setStyleSheet(
+                "background-color: #e6f4ea; color: #137333; padding: 10px; margin-top: 10px; border-radius: 4px;"
+            )
+        else:
+            self.status_label.setStyleSheet(
+                "background-color: #fce8e6; color: #c5221f; padding: 10px; margin-top: 10px; border-radius: 4px;"
+            )
+        self.status_label.show()    
 
     def check_status(self):
         ram_gb = get_total_ram_gb()
@@ -242,23 +254,22 @@ class HibernationHelper(QMainWindow):
         # Enable/disable test button
         self.test_btn.setEnabled(self.hibernation_ready)
 
-        # Show verdict
+        # Show verdict in status area (not modal)
         if self.hibernation_ready:
-            self.show_result("✅ Hibernation is fully configured and ready!", True)
+            self.set_status_message("✅ Hibernation is fully configured and ready!", True)
         else:
             if total_hibernation_swap_gb < ram_gb:
                 needed = ram_gb - total_hibernation_swap_gb
                 msg = (
-                    f"⚠️ Not enough disk-based swap.\n"
-                    f"Need {ram_gb} GB, have {total_hibernation_swap_gb} GB.\n"
+                    f"⚠️ Not enough disk-based swap. "
+                    f"Need {ram_gb} GB, have {total_hibernation_swap_gb} GB. "
                     f"Short by {needed} GB."
                 )
             elif resume is None:
-                msg = "⚠️ Kernel resume is not configured.\nUse 'Enable Hibernation' to set it up."
+                msg = "⚠️ Kernel resume is not configured. Use 'Enable Hibernation' to set it up."
             else:
                 msg = "⚠️ Hibernation is not ready."
-
-            self.show_result(msg, False)
+            self.set_status_message(msg, False)        
 
     def test_hibernate(self):
         reply = QMessageBox.question(
@@ -277,21 +288,13 @@ class HibernationHelper(QMainWindow):
                 subprocess.Popen(['pkexec', 'systemctl', 'hibernate'])
                 # We don't wait for it — system will hibernate
             except Exception as e:
-                QMessageBox.critical(
-                    self,
-                    "Error",
-                    f"Failed to start hibernation:\n{str(e)}"
-                )            
+                self.set_status_message(f"❌ Failed to start hibernation:\n{str(e)}", False)                        
 
     def enable_hibernation(self):
         # Check if already enabled
         resume, _ = get_kernel_resume_config()
         if resume:
-            QMessageBox.information(
-                self,
-                "Already Enabled",
-                "✅ Hibernation is already configured!"
-            )
+            self.set_status_message("✅ Hibernation is already configured!", True)
             return
 
         # Try to get swap partition UUID first
@@ -308,13 +311,10 @@ class HibernationHelper(QMainWindow):
 
         free_gb = get_free_space_gb("/")
         if free_gb < ram_gb + 2:
-            QMessageBox.warning(
-                self,
-                "Not Enough Space",
-                f"Need at least {ram_gb + 2} GB free on root filesystem.\n"
-                f"You have {free_gb} GB free.\n"
-                "Free up space or add a swap partition manually."
-            )
+            self.set_status_message(
+                f"❌ Not enough space: need {ram_gb + 2} GB free on root, but only {free_gb} GB available.",
+                False
+            )       
             return
 
         reply = QMessageBox.question(
@@ -342,13 +342,9 @@ class HibernationHelper(QMainWindow):
                 cmd = ['grubby', '--update-kernel=ALL', f'--args=resume=UUID={uuid}']
                 result = subprocess.run(['pkexec'] + cmd, capture_output=True, text=True)
                 if result.returncode == 0:
-                    QMessageBox.information(
-                        self,
-                        "Success",
-                        "✅ Hibernation enabled!\nPlease reboot to apply."
-                    )
+                    self.set_status_message("✅ Hibernation enabled!\nPlease reboot to apply changes.", True)
                 else:
-                    QMessageBox.critical(self, "Error", f"grubby failed:\n{result.stderr}")
+                    self.set_status_message(f"❌ grubby failed:\n{result.stderr}", False)                                    
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed: {str(e)}")
 
@@ -369,22 +365,17 @@ class HibernationHelper(QMainWindow):
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if result.returncode == 0:
-                QMessageBox.information(
-                    self,
-                    "Success",
+                self.set_status_message(
                     f"✅ {size_gb} GB swap file created and hibernation enabled!\n"
-                    "Please reboot to apply changes."
+                    "Please reboot to apply changes.",
+                    True
                 )
             else:
-                QMessageBox.critical(
-                    self,
-                    "Error",
-                    f"Failed to create swap file:\n{result.stderr}"
-                )
+                self.set_status_message(f"❌ Failed to create swap file:\n{result.stderr}", False)
         except subprocess.TimeoutExpired:
-            QMessageBox.critical(self, "Timeout", "Swap file creation took too long.")
+            self.set_status_message("❌ Swap file creation took too long.", False)
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Unexpected error:\n{str(e)}")                            
+            self.set_status_message(f"❌ Unexpected error:\n{str(e)}", False)                                        
 
 app = QApplication(sys.argv)
 window = HibernationHelper()
