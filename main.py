@@ -168,6 +168,10 @@ class HibernationHelper(QMainWindow):
         self.enable_btn.clicked.connect(self.enable_hibernation)
         layout.addWidget(self.enable_btn)
 
+        self.disable_btn = QPushButton("⏹️ Disable Hibernation")
+        self.disable_btn.clicked.connect(self.disable_hibernation)
+        layout.addWidget(self.disable_btn)        
+
         # Status display area
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
@@ -375,7 +379,68 @@ class HibernationHelper(QMainWindow):
         except subprocess.TimeoutExpired:
             self.set_status_message("❌ Swap file creation took too long.", False)
         except Exception as e:
-            self.set_status_message(f"❌ Unexpected error:\n{str(e)}", False)                                        
+            self.set_status_message(f"❌ Unexpected error:\n{str(e)}", False)
+
+    def disable_hibernation(self):
+        # Confirm first
+        reply = QMessageBox.question(
+            self,
+            "Disable Hibernation?",
+            "This will:\n"
+            "• Remove 'resume=' from kernel boot parameters\n"
+            "• Optionally remove /swapfile (if it exists)\n\n"
+            "Are you sure?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            # Remove resume args from all kernels
+            result = subprocess.run(
+                ['pkexec', 'grubby', '--update-kernel=ALL', '--remove-args=resume,resume_offset'],
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                self.set_status_message(f"❌ Failed to remove kernel args:\n{result.stderr}", False)
+                return
+
+            # Ask if user wants to remove swap file
+            if os.path.exists("/swapfile"):
+                remove_swap = QMessageBox.question(
+                    self,
+                    "Remove Swap File?",
+                    "A swap file (/swapfile) exists.\n"
+                    "Remove it to free up disk space?\n\n"
+                    "Note: This will disable swapping until reboot or manual re-enable.",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                if remove_swap == QMessageBox.Yes:
+                    rm_result = subprocess.run(
+                        ['pkexec', 'sh', '-c', 'swapoff /swapfile && rm -f /swapfile && sed -i "/\\/swapfile/d" /etc/fstab'],
+                        capture_output=True, text=True
+                    )
+                    if rm_result.returncode == 0:
+                        self.set_status_message(
+                            "✅ Hibernation disabled and /swapfile removed.\n"
+                            "Please reboot to complete the change.",
+                            True
+                        )
+                    else:
+                        self.set_status_message(
+                            f"⚠️ Kernel args removed, but failed to remove /swapfile:\n{rm_result.stderr}",
+                            False
+                        )
+                        return
+
+            self.set_status_message(
+                "✅ Hibernation disabled.\nPlease reboot to complete the change.",
+                True
+            )
+
+        except Exception as e:
+            self.set_status_message(f"❌ Unexpected error:\n{str(e)}", False)                                                    
 
 app = QApplication(sys.argv)
 window = HibernationHelper()
