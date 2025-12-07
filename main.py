@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 
+# Hibernation Helper – Enable hibernation easily on Fedora
+# Copyright (C) 2025 Chief Denis
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 import sys
 import os
 import subprocess
@@ -9,6 +25,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
+
+# App metadata
+__version__ = "0.24"
 
 def get_total_ram_gb():
     """Get total physical RAM in gigabytes (rounded up)."""
@@ -451,8 +470,8 @@ class HibernationHelper(QMainWindow):
 
     def show_about(self):
         about_text = (
-            "<h3>Hibernation Helper</h3>"
-            "<p>Version 0.24</p>"
+            f"<h3>Hibernation Helper</h3>"
+            f"<p>Version {__version__}</p>"
             "<p>A user-friendly tool to test, enable and disable hibernation on Linux.<br>Only tested on Fedora for now</p>"
             "<p>• Works with swap partitions and swap files<br>"
             "• Uses standard Fedora tools (grubby, swapon, pkexec)<br>"
