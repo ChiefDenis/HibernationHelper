@@ -1,5 +1,5 @@
 Name:           hibernation-helper
-Version:        0.24
+Version:        0.27
 Release:        1%{?dist}
 Summary:        GUI tool to enable, test, and disable hibernation on Fedora
 
@@ -7,18 +7,14 @@ License:        GPLv3+
 URL:            https://github.com/ChiefDenis/HibernationHelper
 Source0:        %{name}-%{version}.tar.gz
 
-# No architecture-specific code
 BuildArch:      noarch
-
-# Build requirements (minimal for Python app)
 BuildRequires:  python3
 
-# Runtime dependencies
 Requires:       python3-pyside6
-Requires:       util-linux          # for swapon, blkid
-Requires:       grubby              # for kernel args
-Requires:       file                # for filefrag
-Requires:       systemd             # for systemctl hibernate
+Requires:       util-linux
+Requires:       grubby
+Requires:       file
+Requires:       systemd
 
 %description
 A user-friendly GUI application to check, enable, test, and disable hibernation
@@ -28,32 +24,36 @@ seamlessly with the Plasma desktop.
 %prep
 %setup -q
 
+# Verify version consistency
+SPEC_VERSION="%{version}"
+PY_VERSION=$(grep '^__version__' main.py | cut -d'"' -f2)
+if [ "$SPEC_VERSION" != "$PY_VERSION" ]; then
+    echo "ERROR: Version mismatch between spec ($SPEC_VERSION) and main.py ($PY_VERSION)" >&2
+    exit 1
+fi
+
+# Optional: log the detected version
+echo "Building Hibernation Helper version %{version}"
+echo "Verified against main.py: %{real_version}"
+
 %build
 # Pure Python — nothing to build
 
 %install
-# Remove build root
 rm -rf $RPM_BUILD_ROOT
-
-# Create directory structure
 mkdir -p $RPM_BUILD_ROOT/usr/bin
 mkdir -p $RPM_BUILD_ROOT/usr/share/hibernation-helper
 mkdir -p $RPM_BUILD_ROOT/usr/share/applications
 
-# Install Python script
-cp hibernation-helper/main.py $RPM_BUILD_ROOT/usr/share/hibernation-helper/
+cp main.py $RPM_BUILD_ROOT/usr/share/hibernation-helper/
+cp hibernation-helper.png $RPM_BUILD_ROOT/usr/share/hibernation-helper/
 
-# Install icon (optional but recommended)
-cp hibernation-helper/hibernation-helper.png $RPM_BUILD_ROOT/usr/share/hibernation-helper/
-
-# Install launcher script
 cat > $RPM_BUILD_ROOT/usr/bin/hibernation-helper << 'EOF'
 #!/bin/sh
 exec /usr/bin/python3 /usr/share/hibernation-helper/main.py
 EOF
 chmod +x $RPM_BUILD_ROOT/usr/bin/hibernation-helper
 
-# Install desktop file
 cat > $RPM_BUILD_ROOT/usr/share/applications/hibernation-helper.desktop << 'EOF'
 [Desktop Entry]
 Name=Hibernation Helper
@@ -79,3 +79,4 @@ EOF
 - Add "Disable Hibernation" and "About" dialog
 - Support custom app icon
 - Full hibernation lifecycle management
+- Enforce version consistency with main.py

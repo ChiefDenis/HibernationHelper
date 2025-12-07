@@ -20,14 +20,14 @@ import sys
 import os
 import subprocess
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget,
+    QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QWidget,
     QPushButton, QMessageBox, QGroupBox, QFormLayout
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 
 # App metadata
-__version__ = "0.24"
+__version__ = "0.27"
 
 def get_total_ram_gb():
     """Get total physical RAM in gigabytes (rounded up)."""
@@ -194,20 +194,28 @@ class HibernationHelper(QMainWindow):
         self.disable_btn.clicked.connect(self.disable_hibernation)
         layout.addWidget(self.disable_btn)
 
-        self.about_btn = QPushButton("ℹ️ About")
-        self.about_btn.clicked.connect(self.show_about)
-        layout.addWidget(self.about_btn)                
-
-        # Status display area
-        self.status_label = QLabel("")
+        # Status display area — persistent, calculator-like
+        self.status_label = QLabel("Ready. Click “Check Hibernation Readiness” to begin.")
         self.status_label.setWordWrap(True)
+        self.status_label.setMinimumHeight(80)
+        self.status_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.status_label.setStyleSheet(
-            "padding: 10px; margin-top: 10px; border-radius: 4px;"
+            "padding: 12px; margin-top: 10px; border-radius: 6px; "
+            "background-color: #f9f9f9; color: #555;"
         )
-        self.status_label.hide()  # Hide until first message
+        # Do NOT hide — keep it visible at all times
         layout.addWidget(self.status_label)        
 
-        layout.addStretch()
+        # Bottom bar: About button aligned right
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()  # pushes button to right
+        self.about_btn = QPushButton("ℹ️ About")
+        self.about_btn.setFixedSize(100, 30)
+        self.about_btn.clicked.connect(self.show_about)
+        bottom_layout.addWidget(self.about_btn)
+        layout.addLayout(bottom_layout)
+
+        layout.addStretch()        
 
     def add_status_row(self, label_text, value_text):
         label = QLabel(f"<b>{label_text}:</b>")
@@ -477,7 +485,8 @@ class HibernationHelper(QMainWindow):
             "• Uses standard Fedora tools (grubby, swapon, pkexec)<br>"
             "• No technical knowledge required</p>"
             "<p>© 2025 Chief Denis<br>"
-            "Licensed under MIT"
+            "Licensed under GNU General Public License v3.0<br>see LICENSE for details.<br><br>"
+            "This program comes with ABSOLUTELY NO WARRANTY."
         )
         QMessageBox.about(self, "About Hibernation Helper", about_text)                                                               
 
